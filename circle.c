@@ -243,7 +243,28 @@ static void remove_node(circle_t * p_circle)
 		goto END;
 	}
 
+	if (1 == p_circle->size)
+	{
+		p_circle->p_free(p_circle->p_ptr->p_ptr);
+		p_circle->p_ptr->p_next = NULL;
+		p_circle->p_ptr->p_next = NULL;
+		free(p_circle->p_ptr);
+		p_circle->p_ptr = NULL;
+	}
+	else
+	{
+		struct node * p_tmp = p_circle->p_ptr;
+		p_tmp->p_prev->p_next = p_tmp->p_next;
+		p_tmp->p_next->p_prev = p_tmp->p_prev;
 
+		p_tmp->p_prev = NULL;
+		p_tmp->p_next = NULL;
+
+		p_circle->p_free(p_tmp->p_ptr);
+		free(p_tmp);
+	}
+
+	p_circle->size--;
 
 END:
 	return;
