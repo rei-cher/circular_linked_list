@@ -60,22 +60,22 @@ END:
 
 void circle_destroy(circle_t ** pp_circle)
 {
-	if ((NULL == * pp_circle) ||
-		(0 == * pp_circle->size))
+	if ((NULL == (* pp_circle)) ||
+		(0 == (* pp_circle)->size))
 	{
 		goto END;
 	}
 
-	while (0 != * pp_circle->size)
+	while (0 != (* pp_circle)->size)
 	{
-		remove_node(* pp_circle);
+		remove_node((* pp_circle));
 	}
 
-	free(* pp_circle);
-	* pp_circle = NULL;
+	free((* pp_circle));
+	(* pp_circle) = NULL;
 
 END:
-	return void;
+	return;
 }
 
 int circle_add(circle_t * p_circle, void * p_data)
@@ -131,10 +131,10 @@ int circle_remove(circle_t * p_circle, void * p_data)
 {
 	int SUCCESS = 1;
 
-	if ((NULL == p_circe) ||
+	if ((NULL == p_circle) ||
 		(NULL == p_data) ||
 		(NULL == p_circle->p_comp) ||
-		(NULL == p_circlt->p_ptr))
+		(NULL == p_circle->p_ptr))
 	{
 		goto END;
 	}
@@ -223,7 +223,7 @@ int circle_iter(circle_t * p_circle, iter_f p_iter)
 
 	do
 	{
-		p_circle->p_iter(p_current->p_ptr);
+		p_iter(p_current->p_ptr);
 		p_current = p_current->p_next;
 	} while (p_start != p_current);
 
@@ -244,8 +244,9 @@ static void remove_node(circle_t * p_circle)
 	}
 
 
+
 END:
-	return void;
+	return;
 }
 
 // end of circle.c
