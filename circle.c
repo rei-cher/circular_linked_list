@@ -42,7 +42,14 @@ static void remove_node(circle_t * p_circle);
 
 circle_t * circle_create(free_f p_free, comp_f p_comp)
 {
-	circle_t * p_new_llist = calloc(1, sizeof(circle_t));
+	circle_t * p_new_llist = NULL;
+
+	if (NULL == p_comp)
+	{
+		goto END;
+	}
+
+	p_new_llist = calloc(1, sizeof(circle_t));
 
 	if (NULL == p_new_llist)
 	{
@@ -60,8 +67,8 @@ END:
 
 void circle_destroy(circle_t ** pp_circle)
 {
-	if ((NULL == (* pp_circle)) ||
-		(0 == (* pp_circle)->size))
+	if ((NULL == pp_circle) || 
+		(NULL == (* pp_circle)))
 	{
 		goto END;
 	}
@@ -83,12 +90,13 @@ int circle_add(circle_t * p_circle, void * p_data)
 	int SUCCESS = 1;
 
 	if ((NULL == p_circle) ||
+		(NULL == p_data) ||
 		(NULL == p_circle->p_comp))
 	{
 		goto END;
 	}
 		
-	struct node * p_new_node = calloc(1, sizeof(struct node));
+	node_t * p_new_node = calloc(1, sizeof(node_t));
 
 	if (NULL == p_new_node)
 	{
@@ -103,26 +111,72 @@ int circle_add(circle_t * p_circle, void * p_data)
 		p_new_node->p_prev = p_new_node;
 
 		p_circle->p_ptr = p_new_node;
-	}
-	else
-	{
-		struct node * p_current = p_circle->p_ptr;
 
-		while (0 > p_circle->p_comp(p_current->p_ptr, p_data))
+		p_circle->size++;
+		SUCCESS = 0;
+
+		goto END;
+	}
+
+	node_t * p_start = p_circle->p_ptr;
+	node_t * p_current = p_start;
+
+	do
+	{
+		int result = p_circle->p_comp(p_current->p_ptr, p_data);
+
+		if (0 == result)
 		{
-			p_current = p_current->p_prev;
+			free(p_new_node);
+			goto END;
 		}
 
-		struct node * p_tmp = p_current->p_prev;
+		p_current = p_current->p_next;
+	} while (p_current != p_start);
+
+	p_current = p_start;
+
+	do
+	{
+		node_t * p_next = p_current->p_next;
+
+		int current_comp = p_circle->p_comp(p_current->p_ptr, p_data);
+		int next_comp = p_circle->p_comp(p_next->p_ptr, p_data);
+
+		if ((0 > current_comp) &&
+			(0 > next_comp))
+		{
+			p_new_node->p_prev = p_current;
+			p_new_node->p_next = p_next;
+
+			p_current->p_next = p_new_node;
+			p_next->p_prev = p_new_node;
+
+			p_circle->p_ptr = p_new_node;
+
+			break;
+		}
+
+		p_current = p_next;
 		
-		p_current->p_prev = p_new_node;
-		p_new_node->p_prev = p_tmp;
-		p_tmp->p_next = p_new_node;
-		p_new_node->p_next = p_current;
+	} while (p_current != p_start);
+
+	if (NULL == p_new_node->p_next)
+	{
+		node_t * p_next = p_start->p_next;
+
+		p_new_node->p_prev = p_start;
+		p_new_node->p_next = p_next;
+
+		p_start->p_next = p_new_node;
+		p_next->p_prev = p_new_node;
+
+		p_circle->p_ptr = p_new_node;
 	}
-	
+
 	p_circle->size++;
 	SUCCESS = 0;
+
 END:
 	return SUCCESS;
 }
@@ -139,25 +193,51 @@ int circle_remove(circle_t * p_circle, void * p_data)
 		goto END;
 	}
 
-	struct node * p_current = p_circle->p_ptr;
+	node_t * p_start = p_circle->p_ptr;
+	node_t * p_current = p_start;
 
-	while (0 != p_circle->p_comp(p_current->p_ptr, p_data))
+	do
 	{
+		if (0 == p_circle->p_comp(p_current->p_ptr, p_data))
+		{
+			break;
+		}
+
 		p_current = p_current->p_next;
+
+	} while (p_current != p_start);
+	
+	if (0 != p_circle->p_comp(p_current->p_ptr, p_data))
+	{
+		goto END;
 	}
 
-	struct node * p_prev_current = p_current->p_prev;
-	struct node * p_next_current = p_current->p_next;
+	if (1 == p_circle->size)
+	{
+		p_circle->p_ptr = NULL;
+	}
+	else
+	{
+		p_current->p_prev->p_next = p_current->p_next;
+		p_current->p_next->p_prev = p_current->p_prev;
 
-	p_prev_current->p_next = p_next_current;
-	p_next_current->p_prev = p_prev_current;
+		if (p_circle->p_ptr == p_current)
+		{
+			p_circle->p_ptr = p_current->p_next;
+		}
+	}
+	
+	if (NULL != p_circle->p_free)
+	{
+		p_circle->p_free(p_current->p_ptr);
+	}
 
-	p_circle->p_free(p_current->p_ptr);
 	free(p_current);
 
 	p_circle->size--;
 
 	SUCCESS = 0;
+
 END:
 	return SUCCESS;
 }
@@ -181,7 +261,6 @@ END:
 int circle_contains(circle_t * p_circle, void * p_data)
 {
 	int SUCCESS = 1;
-	int found = 0;
 
 	if ((NULL == p_circle) ||
 		(NULL == p_data) ||
@@ -191,17 +270,20 @@ int circle_contains(circle_t * p_circle, void * p_data)
 		goto END;
 	}
 
-	struct node * p_current = p_circle->p_ptr;
+	node_t * p_start = p_circle->p_ptr;
+	node_t * p_current = p_start;
 	
 	do
 	{
 		if (0 == p_circle->p_comp(p_current->p_ptr, p_data))
 		{
-			found = 1;
 			SUCCESS = 0;
+			goto END;
 		}
+
 		p_current = p_current->p_next;
-	} while (0 == found);
+
+	} while (p_current != p_start);
 
 END:
 	return SUCCESS;
@@ -213,18 +295,20 @@ int circle_iter(circle_t * p_circle, iter_f p_iter)
 
 	if ((NULL == p_circle) ||
 		(NULL == p_circle->p_ptr) ||
-		(NULL == p_circle->p_comp))
+		(NULL == p_iter))
 	{
 		goto END;
 	}
 
-	struct node * p_start = p_circle->p_ptr;
-	struct node * p_current = p_start;
+	node_t * p_start = p_circle->p_ptr;
+	node_t * p_current = p_start;
 
 	do
 	{
 		p_iter(p_current->p_ptr);
+
 		p_current = p_current->p_next;
+
 	} while (p_start != p_current);
 
 	SUCCESS = 0;
@@ -243,26 +327,26 @@ static void remove_node(circle_t * p_circle)
 		goto END;
 	}
 
+	node_t * p_remove = p_circle->p_ptr;
+
 	if (1 == p_circle->size)
 	{
-		p_circle->p_free(p_circle->p_ptr->p_ptr);
-		p_circle->p_ptr->p_next = NULL;
-		p_circle->p_ptr->p_next = NULL;
-		free(p_circle->p_ptr);
 		p_circle->p_ptr = NULL;
 	}
 	else
 	{
-		struct node * p_tmp = p_circle->p_ptr;
-		p_tmp->p_prev->p_next = p_tmp->p_next;
-		p_tmp->p_next->p_prev = p_tmp->p_prev;
+		p_remove->p_prev->p_next = p_remove->p_next;
+		p_remove->p_next->p_prev = p_remove->p_prev;
 
-		p_tmp->p_prev = NULL;
-		p_tmp->p_next = NULL;
-
-		p_circle->p_free(p_tmp->p_ptr);
-		free(p_tmp);
+		p_circle->p_ptr = p_remove->p_next;
 	}
+
+	if (NULL != p_circle->p_free)
+	{
+		p_circle->p_free(p_remove->p_ptr);
+	}
+
+	free(p_remove);
 
 	p_circle->size--;
 
